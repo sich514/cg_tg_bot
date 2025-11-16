@@ -1,12 +1,17 @@
+import os
 import requests
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters
 
 API_KEY = "CG-njVjEATCk7MDzYeQ6tyxcVJ5"
-TELEGRAM_BOT_TOKEN = "8584072610:AAF59ziSkZq-Xr0zorOOPk8jih4bQ8yx7is"  
+TELEGRAM_BOT_TOKEN = "8584072610:AAF59ziSkZq-Xr0zorOOPk8jih4bQ8yx7is"
 
+# Render передает порт через переменную окружения
+PORT = int(os.environ.get("PORT", 8443))
+# Укажите URL вашего сервиса на Render
+WEBHOOK_URL = "https://YOUR_APP_NAME.onrender.com/"
 
-# Функция получения данных с CoinGecko
+# Получение данных с CoinGecko
 def get_perp_markets(symbol: str):
     symbol = symbol.lower()
     url = "https://api.coingecko.com/api/v3/derivatives"
@@ -17,35 +22,35 @@ def get_perp_markets(symbol: str):
     for d in data:
         contract_type = d.get("contract_type", "").lower()
         pair = d.get("symbol", "").lower()
+        price = d.get("price", 0)
         if contract_type == "perpetual" and pair.startswith(symbol):
+            if price == 0:
+                price = "❌ недоступна"
             results.append({
                 "exchange": d.get("market"),
                 "symbol": d.get("symbol"),
-                "price": d.get("price"),
+                "price": price,
             })
-
     return results
 
-
-# Функция для форматирования ответа
+# Формирование ответа пользователю
 def format_markets(symbol: str):
     markets = get_perp_markets(symbol)
     if not markets:
-        return f"❌{symbol.upper()} не найден"
+        return f"❌ {symbol.upper()} не найден"
 
     msg = f"Фьючерсные рынки для {symbol.upper()}:\n\n"
     for m in markets:
-        msg += f"• {m['exchange']} → {m['symbol']} → ${m['price']}\n"
+        msg += f"• {m['exchange']} → {m['symbol']} → {m['price']}\n"
     return msg
-
 
 # Обработчик команды /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
+        "Привет! 👋\n"
         "Отправь мне тикер криптовалюты, например ZEС, Zec или zec, "
         "и я покажу фьючерсные рынки для него."
     )
-
 
 # Обработчик сообщений с тикером
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -53,8 +58,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     response = format_markets(symbol)
     await update.message.reply_text(response)
 
-
-# Основной запуск бота
+# Основной запуск бота через Webhook
 if __name__ == "__main__":
     app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
 
@@ -62,4 +66,10 @@ if __name__ == "__main__":
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     print("Бот запущен...")
-    app.run_polling()
+
+    # Запуск webhook на Render
+    app.run_webhook(
+        listen="0.0.0.0",
+        port=PORT,
+        webhook_url=WEBHOOK_URL
+    )
