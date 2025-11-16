@@ -1,15 +1,16 @@
 import os
 import requests
+from dotenv import load_dotenv
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters
 
-API_KEY = "CG-njVjEATCk7MDzYeQ6tyxcVJ5"
-TELEGRAM_BOT_TOKEN = "8584072610:AAF59ziSkZq-Xr0zorOOPk8jih4bQ8yx7is"
+# Загружаем переменные из .env
+load_dotenv()
 
-# Render передает порт через переменную окружения
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+API_KEY = os.getenv("COINGECKO_API_KEY")
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 PORT = int(os.environ.get("PORT", 8443))
-# Укажите URL вашего сервиса на Render
-WEBHOOK_URL = "https://YOUR_APP_NAME.onrender.com/"
 
 # Получение данных с CoinGecko
 def get_perp_markets(symbol: str):
@@ -61,13 +62,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Основной запуск бота через Webhook
 if __name__ == "__main__":
     app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
-
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     print("Бот запущен...")
-
-    # Запуск webhook на Render
     app.run_webhook(
         listen="0.0.0.0",
         port=PORT,
